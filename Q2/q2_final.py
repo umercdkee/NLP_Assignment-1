@@ -25,7 +25,8 @@ raw_text = gutenberg.raw("austen-emma.txt")
 #PART A : Text Preprocessing
 raw_tokens = word_tokenize(raw_text)
 before_total_tokens = len(raw_tokens)
-before_unique_words = len(set(raw_tokens))
+before_unique_words = len({word for word in raw_tokens 
+                           if word.isalpha()})
 processed_text = re.sub(r"--", " -- ", raw_text)
 processed_tokens = word_tokenize(processed_text)
 stop_words = set(stopwords.words("english"))
@@ -34,9 +35,9 @@ for tok in processed_tokens:
     lower = tok.lower()
     if lower.isalpha() and lower not in stop_words:
         preprocessed_tokens.append(lower)
+after_unique_words = len(set(preprocessed_tokens))
 after_total_tokens = len(preprocessed_tokens)
 freq_dist = Counter(preprocessed_tokens)
-after_unique_words = len(freq_dist)
 print("=" * 60)
 print("PART A: Preprocessing statistics")
 print("=" * 60)
