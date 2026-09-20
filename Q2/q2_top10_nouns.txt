@@ -1,0 +1,10 @@
+mr	1153
+emma	857
+mrs	699
+miss	584
+harriet	494
+weston	439
+thing	398
+knightley	389
+elton	385
+woodhouse	311

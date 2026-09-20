@@ -43,6 +43,11 @@ class WordPieceTokenizer(Tokenizer):
         
         vocab = {token for word in self.tokens for token in word}
 
+        if self.vocab_size <= len(vocab):
+            print(f"vocab_size ({self.vocab_size}) is too small. "
+                f"Initial vocab already has {len(vocab)} tokens.")
+            return vocab
+
         while len(vocab) < self.vocab_size:
 
             token_freq = Counter(
