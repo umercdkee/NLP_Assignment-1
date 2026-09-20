@@ -4,6 +4,8 @@
 \setcopyright{none}
 \renewcommand\footnotetextcopyrightpermission[1]{}
 
+\usepackage{amsmath}
+\usepackage{booktabs}
 
 % --------------------------------------------------
 % Paper information
@@ -26,23 +28,25 @@
   \city{Karachi}
   \country{Pakistan}
 }
+\author{Arqish} \email{az09714@st.habib.pk} \affiliation{% 
+\institution{Dhanani School of Science and Engineering, Habib University} \city{Karachi} \country{Pakistan} }
 
-\author{Arqish}
-\email{az09714@st.habib.pk}
-\affiliation{%
-  \institution{Dhanani School of Science and Engineering, Habib University}
-  \city{Karachi}
-  \country{Pakistan}
-}
+
 
 \begin{document}
 
 \begin{abstract}
-This report discusses the solution of Question 1 in Assignment 1 for the
-Natural Language Processing course offered in Fall 2026 at Habib University.
-It analyzes design choices and the effect of varying hyperparameters of
-WordPiece and BPE tokenizers on a small multilingual text corpus containing
-Urdu, Chinese, and English.
+This report presents implementations of Byte Pair Encoding (BPE) and
+WordPiece tokenizers developed from scratch for a small multilingual
+corpus containing English, Urdu, and Chinese. The report describes the
+preprocessing pipeline, tokenization procedures, pair-selection criteria,
+and the effect of vocabulary size on the learned subword vocabulary.
+Experiments were conducted using vocabulary sizes ranging from 250 to
+900. The results show that BPE began learning longer subword strings at
+smaller vocabulary sizes, while WordPiece required a larger vocabulary
+before producing substantial numbers of longer subword units. Based on
+the observed results, a vocabulary size of 700 was selected as the final
+configuration for the dataset.
 \end{abstract}
 
 \keywords{Natural Language Processing, Tokenization, BPE, WordPiece,
@@ -55,65 +59,281 @@ Multilingual NLP, Subword Tokenization}
 % --------------------------------------------------
 
 \section{Introduction}
-The question provided a small multilingual corpus in English, Urdu, and
-Chinese. It tasked us with implementing the WordPiece and Byte Pair
-Encoding tokenizers from scratch and then experimenting with different
-hyperparameters for the two algorithms on the given dataset. Our
-implementation had one hyperparameter, namely vocabulary size. The
-algorithms were implemented in \texttt{q1.py}, and the resulting
-vocabularies were stored in \texttt{bpe\_vocab.txt} and\\
-\texttt{wordpiece\_vocab.txt}.
 
-% Introduce the problem, motivation, and objectives.
+The question provided a small multilingual corpus containing English,
+Urdu, and Chinese text. The task was to implement Byte Pair Encoding
+(BPE) and WordPiece tokenizers from scratch and experiment with their
+hyperparameters on the given corpus. The assignment specifically
+required consideration of the small corpus size, the three different
+writing systems, code-switching, Unicode representation, and the
+trade-off between vocabulary size and token fragmentation.
 
+Our implementation used vocabulary size as its only explicit
+hyperparameter. The algorithms were implemented in \texttt{q1.py}, and
+the resulting vocabularies were stored in \texttt{bpe\_vocab.txt} and \\
+\texttt{wordpiece\_vocab.txt}. We experimented with vocabulary sizes of
+250, 300, 350, 450, 500, 600, 700, 800, and 900 to examine how the
+learned subword units changed as the vocabulary grew.
 
 \section{Preprocessing}
-The text first underwent Unicode Normalization Form C, ensuring that all visible characters were represented by the same Unicode sequence. This ensured that our algorithms did not treat any visually identical characters differently. The text was then converted to lowercase, which was a change that would have only impacted the English text in our corpus. This ensured that capitalization of individual letters in a word did not lead to the algorithm classifying them as new words. Following this, punctuation marks in all three languages were separated from normal words and stored. Finally, all whitespace was normalized to a single space. All of these steps impacted all three languages, except the conversion to lowercase, which impacted only English. 
 
-% Describe Unicode normalization, lowercasing, punctuation separation,
-% and whitespace normalization.
+The corpus was first normalized using Unicode Normalization Form C
+(NFC). This provides a canonical representation for characters that can
+have multiple Unicode representations while preserving their linguistic
+content. This was particularly important for a multilingual corpus
+because the tokenizer operates directly on Unicode characters.
+
+The text was then converted to lowercase. This primarily affected the
+English portion of the corpus, where uppercase and lowercase versions
+of the same letter would otherwise be treated as different characters.
+Lowercasing did not produce a comparable change for the Urdu and
+Chinese portions of the corpus.
+
+Punctuation was separated from surrounding text rather than removed.
+This allowed punctuation to remain available as tokens while preventing
+it from being merged directly with adjacent words. Punctuation was
+identified using Unicode character categories, making this step
+independent of any particular language or writing system.
+
+Finally, whitespace was normalized to single spaces. This provided a
+consistent representation of word boundaries and allowed the
+implementation to use whitespace-based splitting without being affected
+by repeated spaces, tabs, or line breaks.
+
+These preprocessing decisions were intended to normalize the corpus
+without removing linguistic information. In particular, punctuation was
+retained rather than discarded, and no stemming, lemmatization,
+stopword removal, transliteration, or language-specific word
+normalization was performed. Such transformations could alter the
+frequency distribution of characters and subwords that the two
+tokenizers use when deciding which pairs to merge.
 
 \section{Tokenization Methods}
 
-A parent class \texttt{Tokenizer} was built for both tokenizers to inherit from in order to avoid repeating any methods. The class dealt with taking the initial input, preprocessing the corpus, and writing the output vocabulary to a file. The remaining methods were implemented in the child classes.
+A parent class called \texttt{Tokenizer} was implemented to provide
+functionality shared by both algorithms. It reads the corpus, performs
+the preprocessing steps, and provides functionality for writing the
+resulting vocabulary to a file. The BPE and WordPiece implementations
+inherit from this class and implement their respective tokenization and
+vocabulary-building procedures.
 
-\subsection{WordPiece Algorithm}
+\subsection{WordPiece}
 
-The \texttt{WordPieceTokenizer} class had two methods. The first method, \texttt{tokenize}, took the preprocessed text corpus, split each word into individual characters, added \texttt{\#\#} to each character that was not at the start of a word, and stored the resulting sequences in a two-dimensional list called \texttt{tokens}, which the function returned.
+The \texttt{WordPieceTokenizer} class contains two main methods:
+\texttt{tokenize} and \texttt{vocabulary\_builder}.
 
-The second method, \texttt{vocabulary\_builder}, first initialized the vocabulary using all the tokens produced by the \texttt{tokenize} method. It then repeatedly calculated the frequency of each individual token and the frequency of every adjacent token pair. Instead of selecting the most frequent pair directly, WordPiece calculated a score for each pair using the frequency of the pair divided by the product of the frequencies of its two individual tokens. The pair with the highest score was selected for merging.
+The \texttt{tokenize} method initially represents every word as a
+sequence of individual characters. The first character of each word is
+stored normally, while every subsequent character is prefixed with
+\texttt{\#\#}. For example, the word \texttt{token} is initially
+represented conceptually as
 
-The selected pair was then combined into a new token, with the \texttt{\#\#} marker removed from the second token during the merge. All occurrences of the selected adjacent pair in the token sequences were replaced by the new token. The new token was added to the vocabulary, and this process was repeated until the specified vocabulary size was reached or no further pairs were available.
+\[
+[\texttt{t},\texttt{\#\#o},\texttt{\#\#k},\texttt{\#\#e},
+\texttt{\#\#n}].
+\]
 
-\subsection{Byte Pair Encoding Algorithm}
+The \texttt{vocabulary\_builder} method initializes the vocabulary using
+these character-level tokens. It then repeatedly calculates the
+frequency of each token and the frequency of every adjacent token pair.
 
-The \texttt{BPETokenizer} class also had two methods. The \texttt{tokenize} method took the preprocessed corpus, split it into words, and represented each word as a list of its individual characters. Unlike WordPiece, it did not add \texttt{\#\#} markers to characters occurring after the first character of a word.
+Unlike BPE, WordPiece does not select a pair solely according to its
+frequency. For two adjacent tokens \(x\) and \(y\), the implementation
+uses the following score:
 
-The second method, \texttt{vocabulary\_builder}, initialized the vocabulary using all unique characters in the corpus. It then repeatedly calculated the frequency of every pair of adjacent tokens. Unlike WordPiece, BPE selected the pair with the highest raw frequency.
+\[
+\operatorname{Score}(x,y)
+=
+\frac{\operatorname{Freq}(x,y)}
+{\operatorname{Freq}(x)\operatorname{Freq}(y)}.
+\]
 
-After selecting the most frequent pair, the two tokens were concatenated to form a new token. All occurrences of that pair in the token sequences were then replaced with the new token. The new token was added to the vocabulary, and the process was repeated until the specified vocabulary size was reached or no further pairs were available.
+The pair with the highest score is selected for merging. The two tokens
+are combined into a new token, with the \texttt{\#\#} marker removed
+from the second token. All occurrences of the selected pair are then
+replaced by the new token, which is added to the vocabulary.
 
-The main difference between the two approaches was therefore the criterion used to select pairs for merging. BPE selected the most frequently occurring adjacent pair, whereas WordPiece used a normalized score based on both pair frequency and the frequencies of the individual tokens.
+This process continues until the target vocabulary size is reached or
+no further adjacent pairs are available.
 
-% Explain character initialization, pair-frequency calculation,
-% and iterative merging.
+\subsection{Byte Pair Encoding}
 
+The \texttt{BPETokenizer} class follows a similar iterative procedure
+but uses a different pair-selection criterion.
 
+The \texttt{tokenize} method splits each word into its individual
+characters without adding WordPiece-style \texttt{\#\#} markers. For
+example, the word \texttt{token} is initially represented as
 
-% Explain how Counter is used and how pairs are merged.
+\[
+[\texttt{t},\texttt{o},\texttt{k},\texttt{e},\texttt{n}].
+\]
+
+The vocabulary is initialized using all unique characters in the
+corpus. The algorithm then calculates the frequency of every adjacent
+token pair. The pair with the highest raw frequency is selected:
+
+\[
+(x^*,y^*)
+=
+\underset{(x,y)}{\operatorname{arg\,max}}
+\operatorname{Freq}(x,y).
+\]
+
+The selected pair is concatenated into a new token, and all occurrences
+of the pair are replaced by the new token. The new token is added to
+the vocabulary, and the process is repeated until the target vocabulary
+size is reached.
+
+\subsection{Comparison of Pair Selection}
+
+The primary algorithmic difference between the two implementations is
+therefore the criterion used to select pairs for merging. BPE selects
+the pair with the highest raw frequency, whereas WordPiece normalizes
+the pair frequency using the frequencies of the individual tokens.
+
+This difference can cause the two algorithms to learn different
+subword vocabularies even when they are given the same corpus and target
+vocabulary size. BPE tends to favor pairs that occur frequently in the
+corpus, while the WordPiece score can favor pairs that occur frequently
+relative to the frequencies of their individual components.
 
 \section{Experiments and Results}
-The initial vocabulary size was randomly chosen as 250. This was a particularly terrible choice for WordPiece as it did not learn a single token longer than one character. BPE did noticeably better, learning words like \texttt{word} and \texttt{tokeniz}.
-\\
-Increasing the vocabulary size to 300 did not have any observable impact on WordPiece, but BPE learned many more longer strings like \texttt{tokenization} and \texttt{process} along with suffixes like \texttt{ing}.
-\\
-Increasing the vocabulary size to 350 had approximately the same impact as increasing it from 250 to 300. 
-\\
-Increasing the vocabulary size to 450 showed noticeable improvement for WordPiece, especially in the Urdu language, as it started to learn proper words. The BPE tokenizer also continued to improve.
-\\Increasing vocabulary size to 500 did not show any significant change in either.
-\\Increasing the vocabulary size for WordPiece to 600 led to it finally learning a substantial number of English subword strings. BPE was learning a substantial number of full words at this stage.
-\\Finally, increasing the vocabulary size to 700 provided decent results for WordPiece, and further improved what BPE learned as well. Further increases to 800 and 900 confirmed this trend for WordPiece.
-\\Based on the observed tokenization results, a vocabulary size of 700 provided a reasonable balance between vocabulary size and the quality of the learned subword tokens for this dataset.
 
+The vocabulary size \(K\) was varied to examine how increasing the
+available vocabulary affected the learned subwords. The tested values
+were 250, 300, 350, 450, 500, 600, 700, 800, and 900.
+
+\begin{table}[t]
+\caption{Observed effect of vocabulary size on learned subwords}
+\label{tab:vocab-results}
+\centering
+\begin{tabular}{c|p{2.6cm}|p{2.6cm}}
+\toprule
+$K$ & WordPiece & BPE \\
+\midrule
+250 & No token longer than one character was observed & Learned longer strings such as \texttt{word} and \texttt{tokeniz} \\
+300 & Little observable change & More long strings, including \texttt{tokenization}, \texttt{process}, and \texttt{ing} \\
+350 & Similar to $K=300$ & Continued improvement \\
+450 & Noticeable improvement, particularly for Urdu & Continued improvement \\
+500 & Little observable change & Little observable change \\
+600 & Substantial number of English subword strings & Substantial number of complete words \\
+700 & Further improvement & Further improvement \\
+800 & Continued improvement & Continued improvement \\
+900 & Continued improvement & Continued improvement \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At \(K=250\), WordPiece did not learn any token longer than one
+character in the observed vocabulary. In contrast, BPE had already
+learned longer strings such as \texttt{word} and \texttt{tokeniz}.
+This indicates that the two pair-selection criteria produced
+noticeably different vocabularies even at a relatively small
+vocabulary size.
+
+Increasing \(K\) to 300 produced little observable change in the
+WordPiece vocabulary. BPE, however, learned additional longer strings,
+including \texttt{tokenization} and \texttt{process}, as well as
+suffixes such as \texttt{ing}. At \(K=350\), the observed results were
+similar to those at \(K=300\).
+
+At \(K=450\), WordPiece began producing substantially longer tokens,
+with particularly noticeable changes in the Urdu portion of the
+vocabulary. BPE also continued to produce longer subword units. The
+increase to \(K=500\) produced comparatively little additional change
+in either vocabulary.
+
+At \(K=600\), WordPiece began learning a substantial number of English
+subword strings. At the same vocabulary size, BPE was already learning
+a substantial number of complete words. Increasing \(K\) to 700
+continued to improve the learned vocabularies for both algorithms.
+Further increases to 800 and 900 continued this trend for WordPiece.
+
+\subsection{Multilingual Observations}
+
+The multilingual nature of the corpus affected the vocabularies
+produced by both algorithms. English words are composed from a
+relatively small alphabet and contain recurring character sequences,
+allowing frequent sequences to be merged into longer subwords. This is
+visible in the English examples learned by BPE at relatively small
+vocabulary sizes.
+
+The Urdu portion of the corpus showed a more noticeable improvement
+for WordPiece at larger vocabulary sizes. This demonstrates that the
+choice of vocabulary size can affect the representation of different
+languages differently within a shared multilingual vocabulary.
+
+Chinese differs from English and Urdu because its writing system does
+not use alphabetic word formation in the same way. Consequently, the
+character-level initialization provides a particularly direct
+representation of Chinese text. The learned Chinese vocabulary should
+therefore be interpreted in terms of character sequences rather than
+assuming that every learned token corresponds to an English-style
+word.
+
+\subsection{BPE and WordPiece Comparison}
+
+The experiments demonstrate a difference in how the two algorithms use
+additional vocabulary capacity. BPE began producing longer strings at
+smaller vocabulary sizes in our experiments, while WordPiece showed a
+more noticeable increase in longer subword strings at larger values of
+\(K\).
+
+The difference follows from their pair-selection criteria. BPE directly
+maximizes pair frequency, so frequently occurring sequences are merged
+first. WordPiece instead considers pair frequency relative to the
+frequencies of the individual tokens. As a result, a pair that is
+frequent in isolation is not necessarily selected by WordPiece at the
+same stage at which it would be selected by BPE.
+
+\section{Discussion}
+
+The experiments show that vocabulary size has a direct effect on the
+degree of token fragmentation. A small vocabulary limits the number of
+merges that can be performed and therefore leaves more of the corpus
+represented by individual characters or short subwords. Increasing the
+vocabulary size allows additional merges and consequently produces
+longer learned units.
+
+The results also show that increasing \(K\) does not necessarily
+produce the same degree of improvement at every step. For example,
+increasing \(K\) from 250 to 300 produced a more noticeable change for
+BPE than for WordPiece, while larger vocabulary sizes produced more
+substantial changes in WordPiece.
+
+There is therefore a trade-off in selecting \(K\). A very small
+vocabulary results in greater token fragmentation, whereas a very large
+vocabulary can allocate vocabulary entries to increasingly specific
+strings. Since the assignment corpus is small and multilingual, the
+selected value should provide useful subword units across the different
+languages rather than simply maximizing the number of learned strings.
+
+Based on the observed results, \(K=700\) was selected as the final
+configuration. At this value, WordPiece had begun learning a
+substantial number of longer subword strings, while BPE was producing
+many complete words and longer subword units. Values above 700
+continued the observed trend, but the additional vocabulary capacity
+was not considered necessary for the purposes of this small corpus.
+
+\section{Conclusion}
+
+This report implemented BPE and WordPiece from scratch and examined the
+effect of vocabulary size on their learned subword vocabularies. The
+two algorithms differed primarily in their pair-selection criteria:
+BPE selected the most frequent adjacent pair, while WordPiece used a
+normalized score based on pair and individual-token frequencies.
+
+Experiments across vocabulary sizes from 250 to 900 showed that BPE
+began learning longer strings at smaller vocabulary sizes, while
+WordPiece showed more substantial improvements at larger vocabulary
+sizes. The experiments also demonstrated that vocabulary size affects
+different languages differently within a shared multilingual
+vocabulary.
+
+Based on the observed results, a vocabulary size of 700 was selected
+for the final configuration because it provided a reasonable balance
+between vocabulary size and the quality of the learned subword units
+for the given corpus.
 
 \end{document}
