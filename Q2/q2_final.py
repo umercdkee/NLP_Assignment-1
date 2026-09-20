@@ -95,14 +95,14 @@ print(f"Total unique nouns:     {len(unique_nouns)}")
 print()
 
 #save Output Files
-with open("q2_top10_words.txt", "w", encoding="utf-8") as f:
+with open("top10_words.txt", "w", encoding="utf-8") as f:
     for word, count in top_10_words:
         f.write(f"{word}\t{count}\n")
 
-with open("q2_top10_nouns.txt", "w", encoding="utf-8") as f:
+with open("top10_nouns.txt", "w", encoding="utf-8") as f:
     for word, count in top_10_nouns:
         f.write(f"{word}\t{count}\n")
 
-with open("q2_unique_nouns.txt", "w", encoding="utf-8") as f:
+with open("unique_nouns.txt", "w", encoding="utf-8") as f:
     for noun in unique_nouns:
         f.write(noun + "\n")
