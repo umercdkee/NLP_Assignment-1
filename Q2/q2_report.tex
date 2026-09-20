@@ -1,0 +1,316 @@
+\documentclass[sigconf]{acmart}
+
+\settopmatter{printacmref=false}
+\setcopyright{none}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+
+% --------------------------------------------------
+% Paper information
+% --------------------------------------------------
+
+\title{NLP Assignment 1 Q2 Report}
+
+\author{Muhammad Umer Siddiqui}
+\email{ms08702@st.habib.pk}
+\affiliation{%
+  \institution{Dhanani School of Science and Engineering, Habib University}
+  \city{Karachi}
+  \country{Pakistan}
+}
+
+\author{Abdullah Shaikh}
+\email{as09245@st.habib.pk}
+\affiliation{%
+  \institution{Dhanani School of Science and Engineering, Habib University}
+  \city{Karachi}
+  \country{Pakistan}
+}
+
+\author{Arqish Zaria}
+\email{az09714@st.habib.pk}
+\affiliation{%
+  \institution{Dhanani School of Science and Engineering, Habib University}
+  \city{Karachi}
+  \country{Pakistan}
+}
+
+\begin{document}
+
+\begin{abstract}
+This report presents a preprocessing, word-frequency and part-of-speech
+analysis of Jane Austen's \textit{Emma}, loaded from NLTK's Gutenberg
+corpus. Preprocessing (em-dash spacing, lowercasing, an alphabetic filter
+and stopword removal) reduced the text tokens and the vocabulary of unique words. The most frequent remaining words are dominated by character names and by modal verbs that NLTK's stopword list does not cover. POS tagging was run sentence by sentence on the unfiltered text, and the noun analysis
+is dominated by character names and honorifics. The report also discusses how preprocessing choices affected the tagger.
+\end{abstract}
+
+\keywords{Natural Language Processing, Text Preprocessing, Word Frequency,
+POS Tagging, NLTK}
+
+\maketitle
+
+% --------------------------------------------------
+% Main content
+% --------------------------------------------------
+
+\section{Introduction}
+
+The question required an analysis of an English text; preprocessing it and
+comparing statistics before and after, finding the most frequent words,
+running a part-of-speech (POS) tagger to analyse the nouns and discussing
+how the preprocessing decisions affected the results. We used Jane
+Austen's \textit{Emma}, loaded with NLTK's Gutenberg corpus reader
+(\texttt{austen-emma.txt}).
+
+The whole analysis is implemented in \texttt{q2\_final.py}. Besides printing the results, the script writes three output files: \texttt{top10\_words.txt}
+(the ten most frequent words after preprocessing),
+\texttt{top10\_nouns.txt} (the ten most frequent nouns) and
+\texttt{unique\_nouns.txt} (every distinct noun found, sorted
+alphabetically). All numbers in this report are taken from the output of
+this script and from these files.
+
+\section{Part A: Text Preprocessing}
+
+The raw text was first tokenized as is with NLTK's \texttt{word\_tokenize},
+with no modification, to obtain baseline statistics. The baseline total
+token count includes every token produced by the tokenizer (punctuation
+included). The baseline unique-word count only counts alphabetic tokens
+(tokens for which \texttt{isalpha()} is true) and is case sensitive so
+\textit{The} and \textit{the} count as two different words.
+
+One normalization step was then applied before computing the
+after preprocessing statistics every occurrence of \texttt{--} (Project
+Gutenberg's rendering of an em dash, written with no surrounding
+whitespace) was replaced with \texttt{ -- } surrounded by spaces. Without
+this step, punctuation next to an unspaced em dash stays attached to the
+neighbouring word. For example, in \textit{``...brought it.--Nobody...''}
+the period stays fused to the word before the dash and the token becomes
+\textit{``it.''} which would later fail the alphabetic filter and get mistagged. 
+
+After this normalization, every token was lowercased and passed through two
+filters: an alphabetic check (\texttt{isalpha()}) and a stopword filter
+using NLTK's built-in English stopword list. The alphabetic check removes
+punctuation, digits and any other non-word tokens. Note that it also
+removes tokens containing an apostrophe or a period, such as contraction
+fragments (\textit{n't}, \textit{'s}) and dotted abbreviations such as
+\textit{Mr.}, so those tokens do not reach the frequency analysis later on.
+
+\begin{table}[H]
+\caption{Token and vocabulary counts before and after preprocessing}
+\label{tab:partA}
+\centering
+\begin{tabular}{lrr}
+\toprule
+ & Total tokens & Unique words \\
+\midrule
+Before preprocessing & 191{,}855 & 7{,}378 \\
+After preprocessing  & 70{,}171  & 6{,}831 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Preprocessing removed 63.42\% of all tokens (191,855 to 70,171) but only
+about 7.41\% of the unique words (7,378 to 6,831). The token count falls
+sharply because punctuation and stopwords are the most repeated tokens in
+the novel whereas each of them is only a single entry in the vocabulary.
+The unique-word count falls by a much smaller amount because the words
+removed are few in number and because lowercasing merges case variants
+(such as \textit{The} and \textit{the}) into one entry which also reduces
+the count slightly.
+
+\section{Part B: Word Frequency Analysis}
+
+This part identifies the ten most frequent words remaining after
+preprocessing, computed with a frequency counter over the filtered token
+list.
+
+\begin{table}[H]
+\caption{Top 10 most frequent words after preprocessing}
+\label{tab:partB}
+\centering
+\begin{tabular}{clr}
+\toprule
+Rank & Word & Frequency \\
+\midrule
+1  & emma    & 865 \\
+2  & could   & 837 \\
+3  & would   & 819 \\
+4  & miss    & 599 \\
+5  & must    & 567 \\
+6  & harriet & 506 \\
+7  & much    & 486 \\
+8  & said    & 484 \\
+9  & one     & 447 \\
+10 & weston  & 439 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The number of words occurring exactly once (hapax legomena) is 2,682,
+which is about 39.26\% of the 6,831 unique words left after preprocessing.
+
+Two things stand out in this list. First, the character names \textit{emma},
+\textit{harriet} and \textit{weston}, together with the address term
+\textit{miss}, take four of the ten places, which is expected in a novel
+built around a small set of characters and their social interactions.
+Second, the modal verbs \textit{could}, \textit{would} and \textit{must}
+survived stopword removal and occupy three of the top five places. NLTK's default English stopword list does not include these
+modal auxiliaries so words that behave more like grammatical connectors
+than content words still pass through the filter. The generic words
+\textit{much}, \textit{said} and \textit{one} also appear in the list.
+
+\section{Part C: Part-of-Speech Tagging}
+
+Nouns were defined as any token tagged \texttt{NN}, \texttt{NNS},
+\texttt{NNP} or \texttt{NNPS}, i.e. singular and plural common nouns
+together with singular and plural proper nouns. Proper noun tags are
+included because a large share of the nouns in this text are character
+names and excluding them would have made the analysis mostly about generic
+words rather than the people the story is about.
+
+POS tagging was performed on the em-dash-normalized text \emph{before}
+lowercasing or stopword removal rather than on the preprocessed token
+list. The text was split into sentences with \texttt{sent\_tokenize} and
+each sentence was tokenized and tagged separately with \texttt{pos\_tag}.
+Tagging on the filtered, lowercased token list would remove exactly the two
+signals the tagger relies on: capitalization (needed to recognize proper
+nouns and titles) and sentence level context (needed to resolve ambiguous
+words). The em-dash is also applied before tagging because a fused token such as \textit{``it.''} can be tagged as a noun even
+though the underlying word is a pronoun.
+
+In addition to the tag based filter, each noun token was required to match
+the pattern of one or more alphabetic characters with an optional single
+trailing period. This excludes Project Gutenberg formatting artifacts such
+as underscore-delimited italics (\textit{``\_her\_''}) and stray bracket
+tokens (\textit{``[''}, \textit{``]''}), while still allowing abbreviations
+such as \textit{Mr.} and single-letter initials to pass through. All nouns
+were lowercased after tagging so that capitalized and lowercase
+occurrences of the same word (for example \textit{Time} and \textit{time})
+are counted together.
+
+\begin{table}[H]
+\caption{Top 10 most frequent nouns (NN, NNS, NNP, NNPS)}
+\label{tab:partC}
+\centering
+\begin{tabular}{clr}
+\toprule
+Rank & Noun & Frequency \\
+\midrule
+1  & mr        & 1{,}153 \\
+2  & emma      & 857 \\
+3  & mrs       & 699 \\
+4  & miss      & 584 \\
+5  & harriet   & 494 \\
+6  & weston    & 439 \\
+7  & thing     & 398 \\
+8  & knightley & 389 \\
+9  & elton     & 385 \\
+10 & woodhouse & 311 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The total number of noun occurrences is 31,317 and the number of distinct
+nouns is 3,711.
+
+The titles \textit{mr} and \textit{mrs} appear without their trailing period
+because of an additional normalization step. The tokenizer sometimes splits
+the period off an abbreviation into its own token (for example when the
+abbreviation falls at a detected sentence boundary) so both the bare form
+\textit{mr} and the dotted form \textit{mr.} can occur in the noun list.
+For every noun token ending in a period, the code checks whether the same
+word also occurs in the noun list without a period. If it does, the two
+are merged into a single count under the bare spelling; if no bare form
+exists (for example \textit{dr.} or \textit{sept.} in
+\texttt{unique\_nouns.txt}), the period is kept. This is why the titles in
+Table~\ref{tab:partC} report a single combined frequency (1,153 for
+\textit{mr} and 699 for \textit{mrs}) rather than a count split across two
+spellings of the same word.
+
+Apart from these two titles, the list consists of six character names
+(\textit{emma}, \textit{harriet}, \textit{weston}, \textit{knightley},
+\textit{elton}, \textit{woodhouse}), the address term \textit{miss} and one
+generic common noun, \textit{thing}.
+
+\subsection{Residual Tagging Errors}
+\label{sec:residual}
+
+The full noun list in \texttt{unique\_nouns.txt} shows that the tagger is
+not perfect. Besides genuine nouns, it contains some function words and
+other non-nouns, for example \textit{a}, \textit{am}, \textit{are},
+\textit{was}, \textit{were}, \textit{had}, \textit{her}, \textit{him},
+\textit{my} and \textit{which}, as well as Roman numerals from chapter
+headings (\textit{ii}, \textit{iii}, \textit{iv}, ... \textit{xix}) and
+single-letter initials. These entries are part of the 3,711 distinct nouns
+reported above, so that figure should be read as an upper bound on the
+number of true nouns. None of them appears in the top ten of
+Table~\ref{tab:partC}.
+
+\section{Part D: Analysis}
+
+\textbf{Effect of preprocessing on vocabulary and frequency.} Preprocessing
+reduced the token count by about 63.42\% but the unique-word count by only
+about 7.41\% (Table~\ref{tab:partA}). This gap is expected: a handful of
+function words and punctuation marks such as \textit{the}, \textit{to},
+\textit{and} and commas account for a large share of the raw tokens but
+each is only one vocabulary entry so removing them shrinks the token count
+far more than the number of word types.
+
+\textbf{Effect of stopword removal on the most frequent words.} Stopword
+removal substantially changed the frequency list: the function words that
+would dominate an unfiltered count, such as \textit{the}, \textit{to} and
+\textit{and} do not survive it. However, it is not a complete fix.
+NLTK's default stopword list omits modal auxiliaries so \textit{could},
+\textit{would} and \textit{must} still occupy three of the top five places
+in Table~\ref{tab:partB}, and other generic words such as \textit{much},
+\textit{said} and \textit{one} also remain. The most frequent word is
+therefore not necessarily the most meaningful word and the choice of
+stopword list has a direct effect on the frequency table. Also, because the
+alphabetic filter removes dotted abbreviations, \textit{mr} and \textit{mrs}
+are largely absent from the word list in Part B, although they are the most
+frequent nouns in Part C.
+
+\textbf{Types of nouns that dominate.} Excluding the two honorifics, the
+list in Table~\ref{tab:partC} consists of the six character names, the
+address term \textit{miss} and the generic noun \textit{thing}. This fits a
+novel that is driven mostly by conversation and social relations among characters rather than by description of objects or
+settings.
+
+\textbf{Preprocessing decisions that affected POS tagging.} Tagging the
+text before any lowercasing or stopword removal was a deliberate choice:
+keeping capitalization let the tagger recognize character names and titles
+such as \textit{Mr.} and \textit{Mrs.} as proper nouns and tagging
+sentence by sentence preserved the sentence level context the tagger uses
+to resolve ambiguous words. Lowercasing the nouns only after tagging let
+case variants be merged into a single count without affecting the tagging
+decision.
+
+The clearest example of a preprocessing decision affecting tagging is the
+em-dash handling. A fused token like \textit{``it.''}, produced when a
+word and its period were followed directly by \texttt{--}, could be tagged
+as a noun because of a Project Gutenberg formatting quirk and not because
+of a grammatical decision by the tagger; the word \textit{it} on its own
+is a pronoun. Adding spaces around the em dash before tokenizing removes
+this source of error. The residual errors listed in Section~\ref{sec:residual} show that
+some tagging mistakes still remain so a frequency list should always be
+checked for unexpected entries after a tagging pass.
+
+\section{Conclusion}
+
+This report analysed \textit{Emma} with NLTK. Preprocessing reduced the
+text from 191,855 to 70,171 tokens (63.42\%) and the vocabulary from 7,378
+to 6,831 unique words (7.41\%). The most frequent remaining words are
+character names and modal verbs that NLTK's stopword list does not remove,
+and 2,682 words (39.26\% of the remaining vocabulary) occur only once. POS
+tagging, performed sentence by sentence on the unfiltered text, found
+31,317 noun occurrences across 3,711 distinct nouns, dominated by
+honorifics and character names. The results show that preprocessing choices,
+in particular the stopword list, capitalization handling and the treatment
+of the em dash, have a direct effect on both the frequency statistics and
+the quality of POS tagging.
+
+\end{document}
