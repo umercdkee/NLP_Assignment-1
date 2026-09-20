@@ -100,6 +100,14 @@ consistent representation of word boundaries and allowed the
 implementation to use whitespace-based splitting without being affected
 by repeated spaces, tabs, or line breaks.
 
+It should be noted that whitespace-based splitting behaves 
+differently across the three languages. Unlike English and Urdu, 
+Chinese does not use spaces between words, so the splitting step 
+treats entire Chinese sentences as single units. Since Chinese 
+characters are themselves meaningful units, the subsequent 
+character-level decomposition remains a reasonable approximation 
+for this corpus.
+
 These preprocessing decisions were intended to normalize the corpus
 without removing linguistic information. In particular, punctuation was
 retained rather than discarded, and no stemming, lemmatization,
@@ -278,7 +286,9 @@ The experiments demonstrate a difference in how the two algorithms use
 additional vocabulary capacity. BPE began producing longer strings at
 smaller vocabulary sizes in our experiments, while WordPiece showed a
 more noticeable increase in longer subword strings at larger values of
-\(K\).
+\(K\). For example, at K=300, BPE had already learned complete tokens such 
+as \textit{tokenization} and \textit{language}, while WordPiece had 
+not yet merged any English character pairs at all. This is because BPE's raw frequency criterion merges them early.
 
 The difference follows from their pair-selection criteria. BPE directly
 maximizes pair frequency, so frequently occurring sequences are merged
